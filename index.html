@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Administrasi Daftar Hadir Instruktur BPVP</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @media print {
+            @page { size: 330mm 210mm landscape; margin: 10mm; }
+            body { background: white; padding: 0; }
+            .no-print { display: none !important; }
+            .page-container { width: 310mm; height: 190mm; border: none !important; box-shadow: none !important; }
+        }
+        .page-container { width: 310mm; min-height: 190mm; margin: auto; padding: 10mm; background: white; border: 1px solid #ccc; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid black; padding: 4px; text-align: center; font-size: 11px; }
+    </style>
+</head>
+<body class="bg-gray-100 p-4">
+    <div class="max-w-4xl mx-auto bg-white p-6 rounded-lg shadow-md no-print mb-8">
+        <h1 class="text-xl font-bold mb-4 text-center">Input Data Pelatihan (F4 Landscape)</h1>
+        <div class="grid grid-cols-2 gap-4">
+            <input id="kejuruan" type="text" placeholder="Kejuruan" class="border p-2 rounded">
+            <input id="program" type="text" placeholder="Program" class="border p-2 rounded">
+            <input id="tglMulai" type="date" class="border p-2 rounded">
+            <input id="tglSelesai" type="date" class="border p-2 rounded">
+            <input id="instruktur" type="text" placeholder="Nama Instruktur" class="border p-2 rounded col-span-2">
+            <div class="col-span-2">
+                <label class="block text-sm font-bold mb-1">Paste Data (Format: KodeUnit [TAB] TotalJP):</label>
+                <textarea id="inputTabel" rows="4" placeholder="Contoh:&#10;KODE.001&#09;15&#10;KODE.002&#09;12" class="w-full border p-2 rounded text-xs"></textarea>
+            </div>
+        </div>
+        <div class="flex gap-2 mt-4">
+            <button onclick="generateSchedule()" class="flex-grow bg-blue-600 text-white py-2 rounded font-bold hover:bg-blue-700">Generate Daftar Hadir</button>
+            <button onclick="window.print()" class="bg-green-600 text-white px-6 py-2 rounded font-bold hover:bg-green-700">Cetak PDF (F4 Landscape)</button>
+        </div>
+    </div>
+
+    <div class="page-container" id="reportArea">
+        <header class="flex items-center border-b-2 border-black pb-2 mb-4">
+            <div class="w-16 h-16 bg-blue-900 flex items-center justify-center text-white font-bold text-[8px] text-center">BPVP BANDA ACEH</div>
+            <div class="flex-grow text-center font-bold">
+                <p>KEMENTERIAN KETENAGAKERJAAN</p>
+                <p>UPT BPVP BANDA ACEH</p>
+                <p class="text-lg underline">DAFTAR HADIR INSTRUKTUR</p>
+            </div>
+        </header>
+        <div class="text-sm mb-4">
+            <p>KEJURUAN : <span id="outKejuruan" class="font-bold"></span></p>
+            <p>PROGRAM : <span id="outProgram" class="font-bold"></span></p>
+            <p>TANGGAL : <span id="outTglRange" class="font-bold"></span></p>
+        </div>
+        <table class="w-full mb-4">
+            <thead>
+                <tr class="bg-gray-200">
+                    <th>NO</th><th>NAMA</th><th>HARI</th><th>TANGGAL</th><th>JAM KE</th><th>KODE UNIT</th><th>JUMLAH JP</th><th>CEKLIS</th>
+                </tr>
+            </thead>
+            <tbody id="tabelBody"></tbody>
+        </table>
+    </div>
+
+    <script>
+        function generateSchedule() {
+            const rawData = document.getElementById('inputTabel').value.trim();
+            const start = new Date(document.getElementById('tglMulai').value);
+            const end = new Date(document.getElementById('tglSelesai').value);
+            const instruktur = document.getElementById('instruktur').value;
+            const body = document.getElementById('tabelBody');
+
+            let queue = rawData.split('\n').map(l => {
+                const p = l.split(/\t/);
+                return { code: p[0], jp: parseInt(p[1]) || 0 };
+            }).filter(i => i.jp > 0);
+
+            body.innerHTML = '';
+            let current = new Date(start);
+            let counter = 1;
+            let currentIdx = 0;
+            let remJP = queue[0]?.jp || 0;
+
+            while (current <= end && currentIdx < queue.length) {
+                if (current.getDay() !== 0 && current.getDay() !== 6) {
+                    let dailyTotal = 0;
+                    while (dailyTotal < 10 && currentIdx < queue.length) {
+                        let canTake = 10 - dailyTotal;
+                        let take = Math.min(canTake, remJP);
+                        let startJam = dailyTotal + 1;
+                        let endJam = dailyTotal + take;
+
+                        body.innerHTML += `<tr>
+                            <td>${counter++}</td><td>${instruktur}</td><td>${current.toLocaleDateString('id-ID', {weekday:'long'})}</td>
+                            <td>${current.toLocaleDateString('id-ID')}</td>
+                            <td>${startJam} - ${endJam}</td>
+                            <td>${queue[currentIdx].code}</td><td>${take} JP</td><td></td>
+                        </tr>`;
+
+                        dailyTotal += take;
+                        remJP -= take;
+                        if (remJP === 0) { currentIdx++; remJP = queue[currentIdx]?.jp || 0; }
+                    }
+                }
+                current.setDate(current.getDate() + 1);
+            }
+            document.getElementById('outKejuruan').innerText = document.getElementById('kejuruan').value;
+            document.getElementById('outProgram').innerText = document.getElementById('program').value;
+            document.getElementById('outTglRange').innerText = `${start.toLocaleDateString()} s.d. ${end.toLocaleDateString()}`;
+        }
+    </script>
+</body>
+</html>
